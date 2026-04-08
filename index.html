@@ -388,6 +388,7 @@ function dealCards() {
   }
 }
 
+// Full render: only called on new game (with deal-in animation)
 function renderCards() {
   var area = document.getElementById('cardsArea');
   area.innerHTML = '';
@@ -395,9 +396,9 @@ function renderCards() {
     (function(idx) {
       var card = cards[idx];
       var colorClass = SUIT_COLORS[card.suit];
-      var isUsed = usedCardIndices.indexOf(idx) !== -1;
       var el = document.createElement('div');
-      el.className = 'playing-card ' + colorClass + (isUsed ? ' used' : '');
+      el.id = 'card-' + idx;
+      el.className = 'playing-card ' + colorClass;
       el.innerHTML =
         '<span class="card-corner ' + colorClass + '">' + card.display + '</span>' +
         '<span class="card-value ' + colorClass + '">' + card.display + '</span>' +
@@ -408,13 +409,27 @@ function renderCards() {
   }
 }
 
+// Lightweight update: only toggle used/unused class, no DOM rebuild
+function refreshCardStates() {
+  for (var i = 0; i < cards.length; i++) {
+    var el = document.getElementById('card-' + i);
+    if (!el) continue;
+    var isUsed = usedCardIndices.indexOf(i) !== -1;
+    if (isUsed) {
+      el.classList.add('used');
+    } else {
+      el.classList.remove('used');
+    }
+  }
+}
+
 function selectCard(idx) {
   if (usedCardIndices.indexOf(idx) !== -1) return;
   usedCardIndices.push(idx);
   expression += String(cards[idx].num);
   hideResult();
   updateExprDisplay();
-  renderCards();
+  refreshCardStates();
 }
 
 // ==================== Expression ====================
@@ -432,7 +447,7 @@ function doBackspace() {
   rebuildUsedCards();
   hideResult();
   updateExprDisplay();
-  renderCards();
+  refreshCardStates();
 }
 
 function clearExpr() {
@@ -440,7 +455,7 @@ function clearExpr() {
   usedCardIndices = [];
   hideResult();
   updateExprDisplay();
-  renderCards();
+  refreshCardStates();
 }
 
 function rebuildUsedCards() {
