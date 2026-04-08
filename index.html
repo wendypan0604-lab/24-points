@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>24 点游戏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #f5f6fa; --card-bg: #ffffff; --primary: #5b6abf;
+    --primary-light: #eef0ff; --text: #2d3436; --text-light: #636e72;
+    --success: #00b894; --danger: #e17055; --border: #dfe6e9;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px; overflow-x: hidden;
+  }
+  h1 { font-size: 1.6rem; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+  .subtitle { font-size: 0.85rem; color: var(--text-light); margin-bottom: 16px; }
+
+  /* Timer & Stats Bar */
+  .stats-bar {
+    display: flex; gap: 16px; align-items: center; justify-content: center;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .stat-item {
+    background: var(--card-bg); border-radius: 12px; padding: 8px 16px;
+    box-shadow: var(--shadow); font-size: 0.9rem; display: flex; align-items: center; gap: 6px;
+  }
+  .stat-item .icon { font-size: 1.1rem; }
+  .timer { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 40px; text-align: center; }
+  .timer.warning { color: var(--danger); }
+
+  /* Cards Area */
+  .cards-area {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .playing-card {
+    width: 80px; height: 112px; background: var(--card-bg);
+    border-radius: 12px; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.25s ease; border: 2.5px solid transparent;
+    position: relative; user-select: none;
+  }
+  .playing-card:hover { transform: translateY(-4px); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+  .playing-card.selected { border-color: var(--primary); background: var(--primary-light); transform: translateY(-6px); }
+  .playing-card.used { opacity: 0.3; pointer-events: none; transform: scale(0.95); }
+  .playing-card .card-value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+  .playing-card .card-suit { font-size: 1.3rem; margin-top: 2px; }
+  .playing-card .card-corner { position: absolute; top: 6px; left: 8px; font-size: 0.65rem; font-weight: 600; }
+  .suit-red { color: #e74c3c; }
+  .suit-black { color: #2d3436; }
+
+  /* Expression Builder */
+  .expression-area {
+    background: var(--card-bg); border-radius: 16px; padding: 16px;
+    box-shadow: var(--shadow); width: 100%; max-width: 400px; margin-bottom: 16px;
+  }
+  .expression-display {
+    min-height: 48px; background: #f8f9fa; border-radius: 10px;
+    padding: 12px 16px; font-size: 1.25rem; font-weight: 600;
+    text-align: center; margin-bottom: 12px; word-break: break-all;
+    border: 1px solid var(--border); font-variant-numeric: tabular-nums;
+    transition: border-color 0.3s;
+  }
+  .expression-display .cursor { animation: blink 1s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* Result display inline */
+  .result-bar {
+    padding: 10px 16px; border-radius: 10px; margin-bottom: 12px;
+    font-size: 1rem; font-weight: 600; text-align: center;
+    animation: fadeIn 0.3s ease; display: none;
+  }
+  .result-bar.show { display: block; }
+  .result-bar.success { background: #e6fff5; color: #00b894; border: 1.5px solid #55efc4; }
+  .result-bar.fail { background: #fff0ed; color: #e17055; border: 1.5px solid #fab1a0; }
+  .result-bar.info { background: #fff9e6; color: #6c5ce7; border: 1.5px solid #ffeaa7; }
+
+  .op-buttons {
+    display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+  }
+  .op-btn {
+    width: 52px; height: 44px; border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--card-bg); font-size: 1.2rem; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text);
+  }
+  .op-btn:hover { background: var(--primary-light); border-color: var(--primary); }
+  .op-btn:active { transform: scale(0.9); background: var(--primary-light); }
+  .op-btn.accent { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .op-btn.accent:hover { opacity: 0.9; }
+  .op-btn.accent:active { transform: scale(0.9); opacity: 0.8; }
+  .op-btn.danger { color: var(--danger); border-color: var(--danger); }
+  .op-btn.danger:hover { background: #ffeef0; }
+
+  /* Action Buttons */
+  .actions {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 16px; width: 100%; max-width: 400px;
+  }
+  .action-btn {
+    flex: 1; min-width: 100px; padding: 12px 16px; border-radius: 12px;
+    border: none; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .action-btn:active { transform: scale(0.96); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-secondary { background: var(--card-bg); color: var(--text); box-shadow: var(--shadow); }
+  .btn-secondary:hover { background: #f0f0f0; }
+  .btn-help { background: #ffeaa7; color: #6c5ce7; }
+  .btn-help:hover { background: #fdcb6e; }
+  .btn-help:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Hint Area */
+  .hint-area {
+    background: #fff9e6; border: 1.5px solid #ffeaa7; border-radius: 12px;
+    padding: 12px 16px; width: 100%; max-width: 400px; margin-bottom: 16px;
+    font-size: 0.9rem; color: #6c5ce7; text-align: center;
+    animation: fadeIn 0.3s ease; display: none;
+  }
+  .hint-area.show { display: block; }
+  .hint-area .hint-label { font-weight: 700; margin-bottom: 4px; }
+
+  /* Result Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; animation: fadeIn 0.2s ease;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card-bg); border-radius: 20px; padding: 32px;
+    text-align: center; max-width: 340px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2); animation: popIn 0.3s ease;
+  }
+  .modal .emoji { font-size: 3rem; margin-bottom: 12px; }
+  .modal h2 { font-size: 1.4rem; margin-bottom: 8px; }
+  .modal .msg { color: var(--text-light); font-size: 0.95rem; margin-bottom: 6px; }
+  .modal .msg-detail { color: var(--text-light); font-size: 0.85rem; margin-bottom: 20px; }
+  .modal button { padding: 12px 32px; border-radius: 12px; border: none;
+    background: var(--primary); color: #fff; font-size: 1rem; font-weight: 600;
+    cursor: pointer; }
+  .modal button:hover { opacity: 0.9; }
+
+  /* Scoreboard */
+  .scoreboard {
+    background: var(--card-bg); border-radius: 12px; padding: 12px 16px;
+    box-shadow: var(--shadow); width: 100%; max-width: 400px;
+    font-size: 0.85rem; color: var(--text-light); text-align: center;
+  }
+  .scoreboard span { font-weight: 700; color: var(--primary); }
+
+  @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+  @keyframes popIn { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+
+  /* Responsive */
+  @media (max-width: 380px) {
+    .playing-card { width: 68px; height: 96px; }
+    .playing-card .card-value { font-size: 1.5rem; }
+    .playing-card .card-suit { font-size: 1.1rem; }
+    .op-btn { width: 44px; height: 38px; font-size: 1rem; }
+  }
+  @media (min-width: 500px) {
+    .playing-card { width: 96px; height: 134px; }
+    .playing-card .card-value { font-size: 2.2rem; }
+    .playing-card .card-suit { font-size: 1.5rem; }
+  }
+
+  /* Deal animation */
+  .playing-card { animation: dealIn 0.4s ease backwards; }
+  .playing-card:nth-child(1) { animation-delay: 0s; }
+  .playing-card:nth-child(2) { animation-delay: 0.1s; }
+  .playing-card:nth-child(3) { animation-delay: 0.2s; }
+  .playing-card:nth-child(4) { animation-delay: 0.3s; }
+  @keyframes dealIn { from { opacity:0; transform: translateY(30px) rotate(-5deg); } to { opacity:1; transform: translateY(0) rotate(0); } }
+</style>
+</head>
+<body>
+
+<h1>🃏 24 点</h1>
+<p class="subtitle">用四张牌凑出 24，加油！</p>
+
+<!-- Stats -->
+<div class="stats-bar">
+  <div class="stat-item"><span class="icon">⏱</span><span class="timer" id="timerDisplay">0s</span></div>
+  <div class="stat-item"><span class="icon">🏆</span><span id="scoreDisplay">0</span> 分</div>
+  <div class="stat-item"><span class="icon">🔥</span><span id="streakDisplay">0</span> 连胜</div>
+</div>
+
+<!-- Cards -->
+<div class="cards-area" id="cardsArea"></div>
+
+<!-- Expression -->
+<div class="expression-area" id="expressionArea">
+  <div class="expression-display" id="exprDisplay"><span class="cursor">|</span></div>
+  <div class="result-bar" id="resultBar"></div>
+  <div class="op-buttons">
+    <button class="op-btn" ontouchend="appendOp('+')" onclick="appendOp('+')">+</button>
+    <button class="op-btn" ontouchend="appendOp('-')" onclick="appendOp('-')">−</button>
+    <button class="op-btn" ontouchend="appendOp('*')" onclick="appendOp('*')">×</button>
+    <button class="op-btn" ontouchend="appendOp('/')" onclick="appendOp('/')">÷</button>
+    <button class="op-btn" ontouchend="appendOp('(')" onclick="appendOp('(')">(</button>
+    <button class="op-btn" ontouchend="appendOp(')')" onclick="appendOp(')')">)</button>
+    <button class="op-btn danger" ontouchend="doBackspace()" onclick="doBackspace()">⌫</button>
+    <button class="op-btn accent" id="equalBtn" ontouchend="doEvaluate()" onclick="doEvaluate()">=</button>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="actions">
+  <button class="action-btn btn-secondary" onclick="clearExpr()">🔄 清除</button>
+  <button class="action-btn btn-help" id="helpBtn" onclick="showHint()" disabled>💡 提示</button>
+  <button class="action-btn btn-primary" onclick="newGame()">🎴 换一题</button>
+</div>
+
+<!-- Hint -->
+<div class="hint-area" id="hintArea">
+  <div class="hint-label" id="hintLabel">💡 提示</div>
+  <div id="hintText"></div>
+</div>
+
+<!-- Scoreboard -->
+<div class="scoreboard">
+  已完成 <span id="totalGames">0</span> 题 &nbsp;|&nbsp; 平均用时 <span id="avgTime">0</span>s &nbsp;|&nbsp; 最快 <span id="bestTime">—</span>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="emoji" id="modalEmoji">🎉</div>
+    <h2 id="modalTitle">太棒了！</h2>
+    <p class="msg" id="modalMsg"></p>
+    <p class="msg-detail" id="modalDetail"></p>
+    <button onclick="closeModal()">继续挑战</button>
+  </div>
+</div>
+
+<script>
+// ==================== Game State ====================
+var cards = [];
+var expression = '';
+var usedCardIndices = [];
+var timerInterval = null;
+var seconds = 0;
+var hintCount = 0;
+var solutions = [];
+var score = 0;
+var streak = 0;
+var totalGames = 0;
+var totalTime = 0;
+var bestTime = Infinity;
+var lastSuccess = false;
+
+var SUITS = ['♠','♥','♦','♣'];
+var SUIT_COLORS = {'♠':'suit-black','♣':'suit-black','♥':'suit-red','♦':'suit-red'};
+var VALUE_NAMES = {1:'A', 11:'J', 12:'Q', 13:'K'};
+
+// Prevent double-fire from ontouchend + onclick on mobile
+var lastEventTime = 0;
+function guardDouble() {
+  var now = Date.now();
+  if (now - lastEventTime < 300) return true;
+  lastEventTime = now;
+  return false;
+}
+
+// ==================== Solver ====================
+function solve24(nums) {
+  var results = [];
+  var EPS = 1e-9;
+
+  function helper(arr, exprs) {
+    if (arr.length === 1) {
+      if (Math.abs(arr[0] - 24) < EPS) {
+        results.push(exprs[0]);
+      }
+      return;
+    }
+    for (var i = 0; i < arr.length; i++) {
+      for (var j = 0; j < arr.length; j++) {
+        if (i === j) continue;
+        var rest = [], restExprs = [];
+        for (var k = 0; k < arr.length; k++) {
+          if (k !== i && k !== j) {
+            rest.push(arr[k]);
+            restExprs.push(exprs[k]);
+          }
+        }
+        var a = arr[i], b = arr[j];
+        var ea = exprs[i], eb = exprs[j];
+        var ops = [
+          [a + b, '(' + ea + '+' + eb + ')'],
+          [a - b, '(' + ea + '-' + eb + ')'],
+          [a * b, '(' + ea + '*' + eb + ')'],
+        ];
+        if (Math.abs(b) > EPS) ops.push([a / b, '(' + ea + '/' + eb + ')']);
+
+        for (var o = 0; o < ops.length; o++) {
+          rest.push(ops[o][0]);
+          restExprs.push(ops[o][1]);
+          helper(rest, restExprs);
+          rest.pop();
+          restExprs.pop();
+        }
+      }
+    }
+  }
+
+  helper(nums, nums.map(String));
+  var seen = {};
+  return results.filter(function(r) {
+    if (seen[r]) return false;
+    seen[r] = true;
+    return true;
+  });
+}
+
+// Generate hints from a solution
+function generateHints(solution) {
+  var opNames = { '+': '加', '-': '减', '*': '乘以', '/': '除以' };
+  var hints = [];
+
+  try {
+    var s = solution;
+    var steps = [];
+    while (s.indexOf('(') !== -1) {
+      var match = s.match(/\((\d+(?:\.\d+)?)([\+\-\*\/])(\d+(?:\.\d+)?)\)/);
+      if (!match) break;
+      var full = match[0], a = match[1], op = match[2], b = match[3];
+      var result;
+      switch(op) {
+        case '+': result = parseFloat(a) + parseFloat(b); break;
+        case '-': result = parseFloat(a) - parseFloat(b); break;
+        case '*': result = parseFloat(a) * parseFloat(b); break;
+        case '/': result = parseFloat(a) / parseFloat(b); break;
+      }
+      steps.push({ a: a, b: b, op: op, result: result });
+      s = s.replace(full, String(result));
+    }
+
+    if (steps.length >= 1) {
+      hints.push('试试把 ' + steps[0].a + ' 和 ' + steps[0].b + ' ' + (opNames[steps[0].op] || '运算') + '一下');
+    }
+    if (steps.length >= 2) {
+      hints.push('接着，用 ' + steps[1].a + ' 和 ' + steps[1].b + ' 进行' + (opNames[steps[1].op] || '运算'));
+    }
+  } catch (e) {
+    hints.push('仔细想想哪两个数可以先组合');
+    hints.push('试试用乘法或除法');
+  }
+
+  while (hints.length < 2) hints.push('换个思路，试试不同的运算顺序');
+  return hints;
+}
+
+function prettify(expr) {
+  return expr.replace(/\*/g, '×').replace(/\//g, '÷');
+}
+
+// ==================== Card Dealing ====================
+function dealCards() {
+  cards = [];
+  for (var i = 0; i < 4; i++) {
+    var num = Math.floor(Math.random() * 13) + 1;
+    var suit = SUITS[Math.floor(Math.random() * 4)];
+    cards.push({ num: num, suit: suit, display: VALUE_NAMES[num] || String(num) });
+  }
+  solutions = solve24(cards.map(function(c) { return c.num; }));
+
+  var attempts = 0;
+  while (solutions.length === 0 && attempts < 200) {
+    cards = [];
+    for (var i = 0; i < 4; i++) {
+      var num = Math.floor(Math.random() * 13) + 1;
+      var suit = SUITS[Math.floor(Math.random() * 4)];
+      cards.push({ num: num, suit: suit, display: VALUE_NAMES[num] || String(num) });
+    }
+    solutions = solve24(cards.map(function(c) { return c.num; }));
+    attempts++;
+  }
+}
+
+function renderCards() {
+  var area = document.getElementById('cardsArea');
+  area.innerHTML = '';
+  for (var i = 0; i < cards.length; i++) {
+    (function(idx) {
+      var card = cards[idx];
+      var colorClass = SUIT_COLORS[card.suit];
+      var isUsed = usedCardIndices.indexOf(idx) !== -1;
+      var el = document.createElement('div');
+      el.className = 'playing-card ' + colorClass + (isUsed ? ' used' : '');
+      el.innerHTML =
+        '<span class="card-corner ' + colorClass + '">' + card.display + '</span>' +
+        '<span class="card-value ' + colorClass + '">' + card.display + '</span>' +
+        '<span class="card-suit">' + card.suit + '</span>';
+      el.addEventListener('click', function() { selectCard(idx); });
+      area.appendChild(el);
+    })(i);
+  }
+}
+
+function selectCard(idx) {
+  if (usedCardIndices.indexOf(idx) !== -1) return;
+  usedCardIndices.push(idx);
+  expression += String(cards[idx].num);
+  hideResult();
+  updateExprDisplay();
+  renderCards();
+}
+
+// ==================== Expression ====================
+function appendOp(op) {
+  if (guardDouble()) return;
+  expression += op;
+  hideResult();
+  updateExprDisplay();
+}
+
+function doBackspace() {
+  if (guardDouble()) return;
+  if (!expression) return;
+  expression = expression.slice(0, -1);
+  rebuildUsedCards();
+  hideResult();
+  updateExprDisplay();
+  renderCards();
+}
+
+function clearExpr() {
+  expression = '';
+  usedCardIndices = [];
+  hideResult();
+  updateExprDisplay();
+  renderCards();
+}
+
+function rebuildUsedCards() {
+  var nums = expression.match(/\d+/g) || [];
+  var available = cards.map(function(c, i) { return { num: c.num, idx: i, used: false }; });
+  usedCardIndices = [];
+  for (var i = 0; i < nums.length; i++) {
+    var val = parseInt(nums[i], 10);
+    for (var j = 0; j < available.length; j++) {
+      if (available[j].num === val && !available[j].used) {
+        available[j].used = true;
+        usedCardIndices.push(available[j].idx);
+        break;
+      }
+    }
+  }
+}
+
+function updateExprDisplay() {
+  var display = document.getElementById('exprDisplay');
+  var pretty = prettify(expression);
+  display.innerHTML = pretty
+    ? '<span>' + pretty + '</span><span class="cursor">|</span>'
+    : '<span class="cursor">|</span>';
+}
+
+// ==================== Result Display ====================
+function showResult(type, text) {
+  var bar = document.getElementById('resultBar');
+  bar.className = 'result-bar show ' + type;
+  bar.textContent = text;
+}
+
+function hideResult() {
+  var bar = document.getElementById('resultBar');
+  bar.className = 'result-bar';
+  bar.textContent = '';
+}
+
+// ==================== Evaluate ====================
+function doEvaluate() {
+  if (guardDouble()) return;
+
+  // 1. Empty check
+  if (!expression || expression.trim() === '') {
+    showResult('info', '请先点击牌面输入数字和运算符');
+    return;
+  }
+
+  // 2. Valid characters check
+  if (/[^0-9\+\-\*\/\(\)]/.test(expression)) {
+    showResult('fail', '表达式包含无效字符');
+    return;
+  }
+
+  // 3. Extract numbers and check card usage
+  var exprNums = expression.match(/\d+/g);
+  if (!exprNums) {
+    showResult('fail', '请输入完整的算式');
+    return;
+  }
+
+  var cardNums = cards.map(function(c) { return c.num; }).sort(function(a, b) { return a - b; });
+  var inputNums = exprNums.map(function(n) { return parseInt(n, 10); }).sort(function(a, b) { return a - b; });
+
+  if (inputNums.length !== 4) {
+    showResult('fail', '需要恰好使用全部 4 张牌（当前用了 ' + inputNums.length + ' 张）');
+    return;
+  }
+
+  var cardStr = JSON.stringify(cardNums);
+  var inputStr = JSON.stringify(inputNums);
+  if (cardStr !== inputStr) {
+    showResult('fail', '使用的数字和牌面不一致');
+    return;
+  }
+
+  // 4. Evaluate the expression safely
+  var result;
+  try {
+    // Use Function constructor for safe evaluation
+    result = (new Function('return (' + expression + ')'))();
+  } catch (e) {
+    showResult('fail', '表达式语法有误，请检查括号和运算符');
+    var exprArea = document.getElementById('expressionArea');
+    exprArea.style.animation = 'shake 0.4s ease';
+    setTimeout(function() { exprArea.style.animation = ''; }, 500);
+    return;
+  }
+
+  // 5. Check result validity
+  if (typeof result !== 'number' || isNaN(result) || !isFinite(result)) {
+    showResult('fail', '计算结果无效（可能除以了 0）');
+    return;
+  }
+
+  // 6. Format result
+  var resultStr;
+  if (Number.isInteger(result)) {
+    resultStr = String(result);
+  } else {
+    resultStr = result.toFixed(2);
+  }
+  var prettyExpr = prettify(expression);
+
+  // 7. Check if result is 24
+  if (Math.abs(result - 24) < 1e-6) {
+    // SUCCESS
+    clearInterval(timerInterval);
+    var gained = Math.max(10, 100 - seconds);
+    score += gained;
+    streak++;
+    totalGames++;
+    totalTime += seconds;
+    if (seconds < bestTime) bestTime = seconds;
+    lastSuccess = true;
+    updateStats();
+
+    showResult('success', prettyExpr + ' = 24  ✓  太棒了！');
+
+    // Show success modal after a brief delay so user sees inline result first
+    setTimeout(function() {
+      showModal(true, prettyExpr + ' = 24', '用时 ' + seconds + ' 秒，得分 +' + gained);
+    }, 600);
+  } else {
+    // WRONG
+    lastSuccess = false;
+    showResult('fail', prettyExpr + ' = ' + resultStr + '  ✗  不是 24');
+
+    // Shake the expression area
+    var exprArea = document.getElementById('expressionArea');
+    exprArea.style.animation = 'shake 0.4s ease';
+    setTimeout(function() { exprArea.style.animation = ''; }, 500);
+  }
+}
+
+// ==================== Timer ====================
+function startTimer() {
+  clearInterval(timerInterval);
+  seconds = 0;
+  updateTimerDisplay();
+  timerInterval = setInterval(function() {
+    seconds++;
+    updateTimerDisplay();
+    if (seconds >= 60) {
+      document.getElementById('helpBtn').disabled = false;
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  var el = document.getElementById('timerDisplay');
+  el.textContent = seconds + 's';
+  if (seconds >= 60) {
+    el.classList.add('warning');
+  } else {
+    el.classList.remove('warning');
+  }
+}
+
+// ==================== Hints ====================
+function showHint() {
+  if (solutions.length === 0) {
+    var area = document.getElementById('hintArea');
+    area.classList.add('show');
+    document.getElementById('hintLabel').textContent = '😅 提示';
+    document.getElementById('hintText').textContent = '这组牌可能无解，试试换一题吧';
+    return;
+  }
+
+  hintCount++;
+  var hints = generateHints(solutions[0]);
+  var area = document.getElementById('hintArea');
+  area.classList.add('show');
+
+  if (hintCount === 1) {
+    document.getElementById('hintLabel').textContent = '💡 提示 1/3';
+    document.getElementById('hintText').textContent = hints[0];
+  } else if (hintCount === 2) {
+    document.getElementById('hintLabel').textContent = '💡 提示 2/3';
+    document.getElementById('hintText').textContent = hints[1];
+  } else {
+    document.getElementById('hintLabel').textContent = '✅ 完整答案';
+    document.getElementById('hintText').textContent = prettify(solutions[0]);
+  }
+}
+
+// ==================== Modal ====================
+function showModal(success, msg, detail) {
+  document.getElementById('modalEmoji').textContent = success ? '🎉' : '🤔';
+  document.getElementById('modalTitle').textContent = success ? '太棒了！' : '再想想';
+  document.getElementById('modalMsg').textContent = msg;
+  document.getElementById('modalDetail').textContent = detail || '';
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  if (lastSuccess) {
+    newGame();
+  }
+}
+
+// ==================== Stats ====================
+function updateStats() {
+  document.getElementById('scoreDisplay').textContent = score;
+  document.getElementById('streakDisplay').textContent = streak;
+  document.getElementById('totalGames').textContent = totalGames;
+  document.getElementById('avgTime').textContent = totalGames ? Math.round(totalTime / totalGames) : 0;
+  document.getElementById('bestTime').textContent = bestTime === Infinity ? '—' : bestTime + 's';
+}
+
+// ==================== New Game ====================
+function newGame() {
+  clearInterval(timerInterval);
+  expression = '';
+  usedCardIndices = [];
+  hintCount = 0;
+  lastSuccess = false;
+  hideResult();
+  document.getElementById('hintArea').classList.remove('show');
+  document.getElementById('helpBtn').disabled = true;
+  dealCards();
+  renderCards();
+  updateExprDisplay();
+  startTimer();
+}
+
+// ==================== Init ====================
+newGame();
+</script>
+</body>
+</html>
