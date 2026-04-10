@@ -81,23 +81,67 @@
   .result-bar.fail { background: #fff0ed; color: #e17055; border: 1.5px solid #fab1a0; }
   .result-bar.info { background: #fff9e6; color: #6c5ce7; border: 1.5px solid #ffeaa7; }
 
-  .op-buttons {
-    display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+  /* Operator button rows */
+  .op-row {
+    display: flex; gap: 8px; margin-bottom: 8px;
   }
+  .op-row:last-child { margin-bottom: 0; }
+
+  /* Base button */
   .op-btn {
-    width: 52px; height: 44px; border-radius: 10px; border: 1.5px solid var(--border);
+    height: 46px; border-radius: 10px; border: 1.5px solid var(--border);
     background: var(--card-bg); font-size: 1.2rem; font-weight: 600;
     cursor: pointer; transition: all 0.15s;
     display: flex; align-items: center; justify-content: center;
-    color: var(--text);
+    color: var(--text); flex: 1;
   }
   .op-btn:hover { background: var(--primary-light); border-color: var(--primary); }
-  .op-btn:active { transform: scale(0.9); background: var(--primary-light); }
-  .op-btn.accent { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .op-btn:active { transform: scale(0.93); }
+
+  /* Row 1: operators — slightly larger, soft tinted background */
+  .op-row-ops .op-btn {
+    height: 52px; font-size: 1.4rem;
+    background: #f0f2ff; border-color: #d4d9f5; color: var(--primary);
+  }
+  .op-row-ops .op-btn:hover { background: var(--primary-light); border-color: var(--primary); }
+
+  /* Row 2: parens + backspace */
+  .op-btn.paren { flex: 2; color: #636e72; background: #f8f9fa; }
+  .op-btn.paren:hover { background: #eef0ff; border-color: #b2b8e0; }
+  .op-btn.danger {
+    flex: 1; color: var(--danger); border-color: #fab1a0; background: #fff5f3;
+  }
+  .op-btn.danger:hover { background: #ffeef0; border-color: var(--danger); }
+
+  /* Row 3: equals */
+  .op-btn.accent {
+    height: 54px; font-size: 1.5rem;
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
   .op-btn.accent:hover { opacity: 0.9; }
-  .op-btn.accent:active { transform: scale(0.9); opacity: 0.8; }
-  .op-btn.danger { color: var(--danger); border-color: var(--danger); }
-  .op-btn.danger:hover { background: #ffeef0; }
+  .op-btn.accent:active { transform: scale(0.97); opacity: 0.85; }
+
+  /* Rules / how-to section */
+  .rules-section {
+    width: 100%; max-width: 400px; margin-top: 12px;
+  }
+  .rules-toggle {
+    width: 100%; background: none; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-radius: 10px; font-size: 0.85rem;
+    color: var(--text-light); background: var(--card-bg);
+    box-shadow: var(--shadow); transition: background 0.2s;
+  }
+  .rules-toggle:hover { background: #f0f0f0; }
+  .rules-toggle .arrow { transition: transform 0.25s; display: inline-block; }
+  .rules-toggle.open .arrow { transform: rotate(180deg); }
+  .rules-body {
+    display: none; background: var(--card-bg); border-radius: 0 0 10px 10px;
+    padding: 12px 16px; font-size: 0.85rem; color: var(--text-light);
+    line-height: 1.7; box-shadow: var(--shadow);
+    border-top: 1px solid var(--border);
+  }
+  .rules-body.open { display: block; animation: fadeIn 0.2s ease; }
 
   /* Action Buttons */
   .actions {
@@ -166,7 +210,9 @@
     .playing-card { width: 68px; height: 96px; }
     .playing-card .card-value { font-size: 1.5rem; }
     .playing-card .card-suit { font-size: 1.1rem; }
-    .op-btn { width: 44px; height: 38px; font-size: 1rem; }
+    .op-btn { height: 40px; font-size: 1rem; }
+    .op-row-ops .op-btn { height: 46px; font-size: 1.2rem; }
+    .op-btn.accent { height: 48px; }
   }
   @media (min-width: 500px) {
     .playing-card { width: 96px; height: 134px; }
@@ -202,14 +248,24 @@
 <div class="expression-area" id="expressionArea">
   <div class="expression-display" id="exprDisplay"><span class="cursor">|</span></div>
   <div class="result-bar" id="resultBar"></div>
-  <div class="op-buttons">
+
+  <!-- Row 1: operators -->
+  <div class="op-row op-row-ops">
     <button class="op-btn" ontouchend="appendOp('+')" onclick="appendOp('+')">+</button>
     <button class="op-btn" ontouchend="appendOp('-')" onclick="appendOp('-')">−</button>
     <button class="op-btn" ontouchend="appendOp('*')" onclick="appendOp('*')">×</button>
     <button class="op-btn" ontouchend="appendOp('/')" onclick="appendOp('/')">÷</button>
-    <button class="op-btn" ontouchend="appendOp('(')" onclick="appendOp('(')">(</button>
-    <button class="op-btn" ontouchend="appendOp(')')" onclick="appendOp(')')">)</button>
+  </div>
+
+  <!-- Row 2: parens + backspace -->
+  <div class="op-row">
+    <button class="op-btn paren" ontouchend="appendOp('(')" onclick="appendOp('(')">(</button>
+    <button class="op-btn paren" ontouchend="appendOp(')')" onclick="appendOp(')')">)</button>
     <button class="op-btn danger" ontouchend="doBackspace()" onclick="doBackspace()">⌫</button>
+  </div>
+
+  <!-- Row 3: equals -->
+  <div class="op-row">
     <button class="op-btn accent" id="equalBtn" ontouchend="doEvaluate()" onclick="doEvaluate()">=</button>
   </div>
 </div>
@@ -230,6 +286,21 @@
 <!-- Scoreboard -->
 <div class="scoreboard">
   已完成 <span id="totalGames">0</span> 题 &nbsp;|&nbsp; 平均用时 <span id="avgTime">0</span>s &nbsp;|&nbsp; 最快 <span id="bestTime">—</span>
+</div>
+
+<!-- Rules -->
+<div class="rules-section">
+  <button class="rules-toggle" id="rulesToggle" onclick="toggleRules()">
+    <span>📖 怎么玩？</span>
+    <span class="arrow">▾</span>
+  </button>
+  <div class="rules-body" id="rulesBody">
+    每局随机发 4 张牌，每张牌对应一个数字（A=1，J=11，Q=12，K=13）。<br>
+    点击牌面输入数字，再用 <strong>+、−、×、÷</strong> 和括号组合成算式，让结果恰好等于 <strong>24</strong>。<br><br>
+    <strong>规则：</strong>4 张牌必须全部用上，且每张只能用一次；运算符和括号可以自由组合。<br><br>
+    <strong>得分：</strong>基础 100 分，每多花 1 秒扣 1 分，最低保底 10 分。<br>
+    超过 60 秒后会出现「提示」按钮，最多点 3 次——前两次给线索，第三次直接显示答案。
+  </div>
 </div>
 
 <!-- Modal -->
@@ -682,6 +753,20 @@ function newGame() {
   renderCards();
   updateExprDisplay();
   startTimer();
+}
+
+// ==================== Rules Toggle ====================
+function toggleRules() {
+  var btn = document.getElementById('rulesToggle');
+  var body = document.getElementById('rulesBody');
+  var isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    btn.classList.remove('open');
+  } else {
+    body.classList.add('open');
+    btn.classList.add('open');
+  }
 }
 
 // ==================== Init ====================
